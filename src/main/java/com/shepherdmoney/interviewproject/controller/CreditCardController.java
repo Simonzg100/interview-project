@@ -58,7 +58,7 @@ public class CreditCardController {
         CreditCard creditCard = new CreditCard();
         creditCard.setIssuanceBank(cardIssuanceBank);
         creditCard.setNumber(cardNumber);
-        creditCard.setOwner(userId);
+        creditCard.setOwner(user);
         System.out.println(user.toString());
 
         CreditCard savedCreditCard = creditCardRepository.save(creditCard);

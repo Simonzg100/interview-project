@@ -22,7 +22,10 @@ public class CreditCard {
     private String number;
 
     // TODO: Credit card's owner. For detailed hint, please see User class
-
+    // Some field here <> owner;
+    @ManyToOne
+    @JoinColumn(name = "user_id", referencedColumnName = "id")
+    private User owner;
 
 
     // TODO: Credit card's balance history. It is a requirement that the dates in the balanceHistory 
