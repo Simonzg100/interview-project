@@ -12,8 +12,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -30,7 +32,6 @@ public class CreditCardController {
     private UserRepository userRepository;
 
     @PostMapping("/credit-card")
-    @Transactional
     public ResponseEntity<?> addCreditCardToUser(@RequestBody AddCreditCardToUserPayload payload) {
         // TODO: Create a credit card entity, and then associate that credit card with user with given userId
         //       Return 200 OK with the credit card id if the user exists and credit card is successfully associated with the user
@@ -58,16 +59,9 @@ public class CreditCardController {
         CreditCard creditCard = new CreditCard();
         creditCard.setIssuanceBank(cardIssuanceBank);
         creditCard.setNumber(cardNumber);
-        creditCard.setOwner(user);
-        System.out.println(user.toString());
+        creditCard.setUser(user);
 
         CreditCard savedCreditCard = creditCardRepository.save(creditCard);
-        // 4. Update the user's list of credit cards if necessary
-        // (This step might not be necessary if you're using CascadeType.ALL and properly managing both sides of the relationship)
-        user.getCreditCards().add(creditCard);
-        userRepository.save(user); // Save the user again to update the relationship
-
-        // Return the credit card id
         return ResponseEntity.ok(savedCreditCard.getId());
     }
 
@@ -75,19 +69,36 @@ public class CreditCardController {
     public ResponseEntity<List<CreditCardView>> getAllCardOfUser(@RequestParam int userId) {
         // TODO: return a list of all credit card associated with the given userId, using CreditCardView class
         //       if the user has no credit card, return empty list, never return null
-        return null;
+
+        List<CreditCard> creditCards = creditCardRepository.findByUserId(userId);
+        if (creditCards == null) {
+            return ResponseEntity.badRequest().body(new ArrayList<>());
+        }
+
+        List<CreditCardView> creditCardViews = new ArrayList<>();
+        for (CreditCard creditCard : creditCards) {
+            CreditCardView creditCardView = new CreditCardView(creditCard.getNumber(), creditCard.getIssuanceBank());
+            creditCardViews.add(creditCardView);
+        }
+        return ResponseEntity.ok(creditCardViews);
     }
 
     @GetMapping("/credit-card:user-id")
     public ResponseEntity<Integer> getUserIdForCreditCard(@RequestParam String creditCardNumber) {
         // TODO: Given a credit card number, efficiently find whether there is a user associated with the credit card
         //       If so, return the user id in a 200 OK response. If no such user exists, return 400 Bad Request
-        return null;
+        Optional<CreditCard> creditCard = creditCardRepository.findByNumber(creditCardNumber);
+        if (creditCard.isEmpty()) {
+            return ResponseEntity.badRequest().body(-1);
+        }
+        int userId = creditCard.get().getUser().getId();
+
+        return ResponseEntity.ok(userId);
     }
 
-    /**
+
     @PostMapping("/credit-card:update-balance")
-    public SomeEnityData postMethodName(@RequestBody UpdateBalancePayload[] payload) {
+    public ResponseEntity<Integer> postMethodName(@RequestBody UpdateBalancePayload[] payload) {
         //TODO: Given a list of transactions, update credit cards' balance history.
         //      1. For the balance history in the credit card
         //      2. If there are gaps between two balance dates, fill the empty date with the balance of the previous date
@@ -101,6 +112,6 @@ public class CreditCardController {
         
         return null;
     }
-    */
+
     
 }
