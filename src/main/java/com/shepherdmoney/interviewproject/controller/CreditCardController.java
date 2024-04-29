@@ -1,5 +1,6 @@
 package com.shepherdmoney.interviewproject.controller;
 
+import com.shepherdmoney.interviewproject.model.BalanceHistory;
 import com.shepherdmoney.interviewproject.model.CreditCard;
 import com.shepherdmoney.interviewproject.model.User;
 import com.shepherdmoney.interviewproject.repository.CreditCardRepository;
@@ -8,13 +9,14 @@ import com.shepherdmoney.interviewproject.vo.request.AddCreditCardToUserPayload;
 import com.shepherdmoney.interviewproject.vo.request.UpdateBalancePayload;
 import com.shepherdmoney.interviewproject.vo.response.CreditCardView;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.relational.core.sql.In;
 import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
+import java.time.LocalDate;
+import java.util.*;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import org.springframework.web.bind.annotation.PostMapping;
@@ -32,26 +34,26 @@ public class CreditCardController {
     private UserRepository userRepository;
 
     @PostMapping("/credit-card")
-    public ResponseEntity<?> addCreditCardToUser(@RequestBody AddCreditCardToUserPayload payload) {
+    public ResponseEntity<Integer> addCreditCardToUser(@RequestBody AddCreditCardToUserPayload payload) {
         // TODO: Create a credit card entity, and then associate that credit card with user with given userId
         //       Return 200 OK with the credit card id if the user exists and credit card is successfully associated with the user
         //       Return other appropriate response code for other exception cases
         //       Do not worry about validating the card number, assume card number could be any arbitrary format and length
         // 1. validate the parameters
         if (payload == null) {
-            return ResponseEntity.badRequest().body("Missing payload");
+            return ResponseEntity.badRequest().body(-1);
         }
         Integer userId = payload.getUserId();
         String cardIssuanceBank = payload.getCardIssuanceBank();
         String cardNumber = payload.getCardNumber();
 
         if (Integer.toString(userId).equals("null") || cardIssuanceBank == null || cardNumber == null) {
-            return ResponseEntity.badRequest().body("Missing required fields in the payload");
+            return ResponseEntity.badRequest().body(-1);
         }
         // 2. check if the user exists
         Optional<User> userOptional = userRepository.findById(userId);
         if (!userOptional.isPresent()) {
-            return ResponseEntity.badRequest().body("User does not exist");
+            return ResponseEntity.badRequest().body(-1);
         }
 
         // 3. add the credit card to the user
@@ -98,7 +100,7 @@ public class CreditCardController {
 
 
     @PostMapping("/credit-card:update-balance")
-    public ResponseEntity<Integer> postMethodName(@RequestBody UpdateBalancePayload[] payload) {
+    public ResponseEntity<?> postMethodName(@RequestBody UpdateBalancePayload[] payloads) {
         //TODO: Given a list of transactions, update credit cards' balance history.
         //      1. For the balance history in the credit card
         //      2. If there are gaps between two balance dates, fill the empty date with the balance of the previous date
@@ -109,9 +111,58 @@ public class CreditCardController {
         //      [{date: 4/12, balance: 120}, {date: 4/11, balance: 110}, {date: 4/10, balance: 100}]
         //      Return 200 OK if update is done and successful, 400 Bad Request if the given card number
         //        is not associated with a card.
-        
-        return null;
+
+
+        if (payloads.length == 0) {
+            // Check if the input payloads are empty or null
+            return ResponseEntity.badRequest().body("Empty or null payload");
+        }
+        System.out.println(Arrays.toString(payloads));
+        // Loop through each transaction data
+        for (UpdateBalancePayload payload : payloads) {
+            String cardNumber = payload.getCreditCardNumber();
+            LocalDate date = payload.getBalanceDate();
+            double amount = payload.getBalanceAmount();
+
+            Optional<CreditCard> cardOptional = creditCardRepository.findByNumber(cardNumber);
+            // If no credit card is found, return a 400 Bad Request
+            if (cardOptional.isEmpty()) {
+                return ResponseEntity.badRequest().body("Credit card not found" );
+            }
+
+            CreditCard creditCard = cardOptional.get();
+            List<BalanceHistory> histories = creditCard.getBalanceHistories();
+            Map<LocalDate, BalanceHistory> balanceHistoryMap = new HashMap<>();
+            for (BalanceHistory bh : histories) {
+                balanceHistoryMap.put(bh.getDate(), bh);
+            }
+
+            // Find or create a balance record for the specified date
+            BalanceHistory history = balanceHistoryMap.get(date);
+            if (history == null) {
+                history = new BalanceHistory();
+                history.setDate(date);
+                history.setCreditCard(creditCard);
+                histories.add(history);
+            }
+
+            // Update the balance
+            history.setBalance(history.getBalance() + amount);
+
+            // If the amount change is not zero, update all subsequent balances after the specified date
+            if (amount != 0) {
+                for (BalanceHistory bh : histories) {
+                    if (bh.getDate().isAfter(date)) {
+                        bh.setBalance(bh.getBalance() + amount);
+                    }
+                }
+            }
+
+            creditCardRepository.save(creditCard);
+        }
+
+        return ResponseEntity.ok("Balance updated successfully");
     }
 
-    
+
 }
