@@ -34,26 +34,26 @@ public class CreditCardController {
     private UserRepository userRepository;
 
     @PostMapping("/credit-card")
-    public ResponseEntity<Integer> addCreditCardToUser(@RequestBody AddCreditCardToUserPayload payload) {
+    public ResponseEntity<?> addCreditCardToUser(@RequestBody AddCreditCardToUserPayload payload) {
         // TODO: Create a credit card entity, and then associate that credit card with user with given userId
         //       Return 200 OK with the credit card id if the user exists and credit card is successfully associated with the user
         //       Return other appropriate response code for other exception cases
         //       Do not worry about validating the card number, assume card number could be any arbitrary format and length
         // 1. validate the parameters
         if (payload == null) {
-            return ResponseEntity.badRequest().body(-1);
+            return ResponseEntity.badRequest().body("Payload is null");
         }
         Integer userId = payload.getUserId();
         String cardIssuanceBank = payload.getCardIssuanceBank();
         String cardNumber = payload.getCardNumber();
 
         if (Integer.toString(userId).equals("null") || cardIssuanceBank == null || cardNumber == null) {
-            return ResponseEntity.badRequest().body(-1);
+            return ResponseEntity.badRequest().body("Invalid input");
         }
         // 2. check if the user exists
         Optional<User> userOptional = userRepository.findById(userId);
         if (!userOptional.isPresent()) {
-            return ResponseEntity.badRequest().body(-1);
+            return ResponseEntity.badRequest().body("User not found");
         }
 
         // 3. add the credit card to the user
